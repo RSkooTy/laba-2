@@ -8,122 +8,99 @@
 
 using namespace std;
 
+class quadraticEquation {
+public:
+    double a, b, c;
+
+    quadraticEquation(double a, double b, double c) : a(a), b(b), c(c) {}
+
+    vector<double> roots() const {
+        vector<double> root;
+
+        double discriminant = b * b - 4 * a * c;
+        if (discriminant >= 0)
+        {
+            root.push_back((-b + sqrt(discriminant)) / (2 * a));
+            root.push_back((-b - sqrt(discriminant)) / (2 * a));
+        }
+        return root;
+    }
+};
+
 class Student {
 public:
     virtual ~Student() {};
-    virtual vector<double> solution(double a, double b, double c) = 0;
+    virtual vector<double> getAnswer(const quadraticEquation& coef) const = 0;
 };
+
 
 class goodStudent : public Student {
 public:
-    vector<double> solution(double a, double b, double c) override {
-        double discriminant = b * b - 4 * a * c;
-        if (discriminant < 0) {
-            return {0.0, 0.0};
-        } else if (discriminant == 0) {
-            double root = -b / (2 * a);
-            return {root, root};
-        } else {
-            double root1 = (-b + sqrt(discriminant)) / (2 * a);
-            double root2 = (-b - sqrt(discriminant)) / (2 * a);
-            return {root1, root2};
-        }
+    vector<double> getAnswer(const quadraticEquation& coef) const override
+    {
+        return coef.roots();
     }
 };
 
 class mediumStudent : public Student {
 public:
-    double probability2;
-
-    mediumStudent(double probability = 0.5) : probability2(probability) {}
-
-    vector<double> solution(double a, double b, double c) override {
-        double discriminant = b * b - 4 * a * c;
-        if (discriminant < 0) {
-            return {0.0, 0.0};
-        } else if (discriminant == 0) {
-            if (rand() % 2 < probability2) {
-                double root = -b / (2 * a);
-                return {root, root};
-             }else
-             {
-                 return{0.0, 0.0};
-             }
-        } else
+    vector<double> getAnswer(const quadraticEquation& coef) const override
+    {
+        if (rand() % 2 == 1)
         {
-            if(rand() % 2 < probability2)
-            {
-                double root1 = (-b + sqrt(discriminant)) / (2 * a);
-                double root2 = (-b - sqrt(discriminant)) / (2 * a);
-                return {root1, root2};
-            }else
-            {
-                double root = -b / (2 * a);
-                return {root, 0.0};
-            }
+            vector<double> root;
+            root.push_back((-coef.b + sqrt(coef.b * coef.b - 4 * coef.a * coef.c)) / (2 * coef.a));
+            return root;
+        }
+        else
+        {
+            return vector<double>();
         }
     }
 };
 
 class badStudent : public Student {
 public:
-    vector<double> solution(double a, double b, double c) override {
-        return {0.0, 0.0};
+    vector<double> getAnswer(const quadraticEquation& coef) const override
+    {
+        return vector<double>();
     }
+
 };
 
 class teacher
 {
 public:
-    vector<vector<double>> resultStudent;
-    
-    void examination(Student *student, double a, double b, double c, const vector<double>& roots)
+    vector<int> resultStudent;
+
+    void examination(Student* student, double a, double b, double c, const vector<double>& answer)
     {
-        vector<double> result = student->solution(a, b, c);
-        
-        if (typeid(*student) == typeid(badStudent)) {
-            resultStudent.push_back(result);
-            return;
-        }
-        
-        double discriminant = b * b - 4 * a * c;
-        vector<double> teacherRoots;
-        if (discriminant > 0)
+        vector<double> result = student->getAnswer(quadraticEquation(a, b, c));
+
+        int numRoots = result.size();
+        if ((numRoots == 2 && result == answer))
         {
-            teacherRoots.push_back((-b + sqrt(discriminant)) / (2 * a));
-            teacherRoots.push_back((-b - sqrt(discriminant)) / (2 * a));
+            resultStudent.push_back(2);
         }
-        else if (discriminant == 0)
+        else if (numRoots == 1 || (numRoots == 2 && result != answer))
         {
-            teacherRoots.push_back(-b / (2 * a));
-            teacherRoots.push_back(teacherRoots[0]);
+            resultStudent.push_back(1);
         }
         else
         {
-            teacherRoots.push_back(0.0);
-            teacherRoots.push_back(0.0);
-        }
-
-        if (result == teacherRoots)
-        {
-            resultStudent.push_back(result);
+            resultStudent.push_back(0);
         }
     }
-    
-    void printResults(ofstream& output)
-    {
-        if(output.is_open())
-        {
-            for(int i = 0; i < resultStudent.size(); i++)
-            {
-                double root1 = resultStudent[i][0];
-                double root2 = resultStudent[i][1];
 
-                output << "Student " << i+1 << ": " << endl;
-                output << "Root 1: " << root1 << endl;
-                output << "Root 2: " << root2 << endl << endl;
+    void printResults(ofstream& outputs)
+    {
+        if (outputs.is_open())
+        {
+            for (int i = 0; i < resultStudent.size(); i++)
+            {
+                outputs << "Student" << i + 1 << ": " << "Grade " << resultStudent[i] << endl;
             }
-            output.close();
+            outputs.close();
             resultStudent.clear();
         }
     }
@@ -133,40 +110,47 @@ void inputCoef()
 {
     teacher Teacher;
     srand(time(NULL));
-    
+
     ifstream input("input.txt");
-    ofstream output("output.txt");
-    
+    ofstream outputs("outputs.txt");
+
     double a, b, c;
     while (input >> a >> b >> c)
     {
         int behavior = rand() % 3;
-        Student *student;
-        
-        if(behavior == 0)
-        {
-            student = new goodStudent();
-        }else if(behavior == 1)
-        {
-            student = new mediumStudent();
-        }else
-        {
-            student = new badStudent();
-        }
+        Student* student = nullptr;
 
-        vector<double> answer;
-        if (b * b - 4 * a * c >= 0) {
-            answer.push_back((-b + sqrt(b * b - 4 * a * c)) / (2 * a));
-            answer.push_back((-b - sqrt(b * b - 4 * a * c)) / (2 * a));
+        switch (behavior) {
+        case 0:
+            student = new goodStudent();
+            break;
+        case 1:
+            student = new mediumStudent();
+            break;
+        case 2:
+            student = new badStudent();
+            break;
         }
-        
+        vector<double> answer;
+        int numRoots = 0;
+        double discriminant = b * b - 4 * a * c;
+        if (discriminant >= 0)
+        {
+            answer.push_back((-b + sqrt(discriminant)) / (2 * a));
+            numRoots++;
+            if (discriminant > 0)
+            {
+                answer.push_back((-b - sqrt(discriminant)) / (2 * a));
+                numRoots++;
+            }
+        }
         Teacher.examination(student, a, b, c, answer);
         delete student;
     }
-    
+
     input.close();
-    Teacher.printResults(output);
-    output.close();
+    Teacher.printResults(outputs);
+    outputs.close();
 }
 
 int main()
